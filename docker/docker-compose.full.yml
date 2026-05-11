@@ -86,7 +86,7 @@ services:
       dockerfile: Dockerfile
     container_name: irion-pipeline
     environment:
-      IRION_KAFKA_BROKER: kafka:9092
+      IRION_KAFKA_BROKER: kafka:9094
       IRION_DATA_DIR: /data
     volumes:
       - irion_data:/data
