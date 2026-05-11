@@ -47,7 +47,7 @@ except ImportError:
 # Constants
 # ---------------------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parent.parent  # irion/
-DATA_DIR = PROJECT_ROOT / "data" / "bronze"
+DATA_DIR = Path(os.environ.get("IRION_DATA_DIR", str(PROJECT_ROOT / "data" / "bronze")))
 
 RETAILERS: list[dict[str, Any]] = [
     {"id": 1, "name": "Amazon", "fulfillment_weights": {"FBA": 0.6, "FBM": 0.4}},
