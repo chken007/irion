@@ -87,6 +87,7 @@ services:
     container_name: irion-pipeline
     environment:
       IRION_KAFKA_BROKER: kafka:9094
+      IRION_KAFKA_OFFSET_RESET: earliest
       IRION_DATA_DIR: /data
     volumes:
       - irion_data:/data
@@ -100,8 +101,12 @@ services:
       context: ../
       dockerfile: docker/Dockerfile.simulator
     container_name: irion-simulator
+    environment:
+      IRION_DATA_DIR: /data
+      IRION_BRONZE_DIR: /app/data/bronze
     volumes:
       - ../data/bronze:/app/data/bronze:ro
+      - irion_data:/data
     depends_on:
       kafka:
         condition: service_healthy

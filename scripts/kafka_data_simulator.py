@@ -47,7 +47,7 @@ except ImportError:
 # Constants
 # ---------------------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parent.parent  # irion/
-DATA_DIR = Path(os.environ.get("IRION_DATA_DIR", str(PROJECT_ROOT / "data" / "bronze")))
+DATA_DIR = Path(os.environ.get("IRION_BRONZE_DIR", str(PROJECT_ROOT / "data" / "bronze")))
 
 RETAILERS: list[dict[str, Any]] = [
     {"id": 1, "name": "Amazon", "fulfillment_weights": {"FBA": 0.6, "FBM": 0.4}},
@@ -547,7 +547,7 @@ Examples:
     # Write product catalog seed to Parquet for Irion API
     import pyarrow as pa, pyarrow.parquet as pq
     from pathlib import Path
-    silver = Path("../irion/data/silver")
+    silver = Path(os.environ.get("IRION_DATA_DIR", str(PROJECT_ROOT / "data"))) / "silver"
     silver.mkdir(parents=True, exist_ok=True)
     seed = pa.Table.from_pylist([{
         "id": p["product_id"],
@@ -556,7 +556,7 @@ Examples:
         "category": p["category"],
     } for p in products])
     pq.write_table(seed, silver / "product_catalog_seed.parquet")
-    print(f"Wrote product_catalog_seed.parquet: {len(products)} products")
+    print(f"Wrote product_catalog_seed.parquet ({len(products)} products) to {silver}")
 
     # Create simulator
     sim = DataSimulator(broker=args.kafka_broker, products=products)
