@@ -1,0 +1,7 @@
+target/
+data/silver/
+data/*.duckdb*
+*.class
+.idea/
+.DS_Store
+.env

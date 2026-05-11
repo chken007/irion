@@ -1,0 +1,5 @@
+FROM python:3.13-slim
+WORKDIR /app
+RUN pip install kafka-python pandas pyarrow
+COPY scripts/kafka_data_simulator.py .
+CMD ["python3", "kafka_data_simulator.py", "--kafka-broker", "kafka:9092"]

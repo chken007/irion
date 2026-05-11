@@ -1,0 +1,160 @@
+# =============================================================================
+# Irion Platform — Full Stack Docker Compose
+#
+# Quick start:
+#   1. Place Kaggle CSV datasets in ../data/bronze/
+#   2. docker compose -f docker-compose.full.yml up -d
+#   3. Open http://localhost:5173 (login: admin@irion.io / admin123)
+#
+# Services:
+#   Infrastructure:  kafka (KRaft), postgres
+#   Apps:            irion-api, irion-pipeline, irion-simulator, irion-ui
+#   Monitoring:      prometheus, grafana (optional)
+# =============================================================================
+
+services:
+  # ── Infrastructure ──────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: irion-postgres
+    environment:
+      POSTGRES_DB: irion
+      POSTGRES_USER: irion
+      POSTGRES_PASSWORD: irion
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U irion -d irion"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: irion-kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:9093'
+      KAFKA_LISTENERS: 'EXTERNAL://0.0.0.0:9092,INTERNAL://0.0.0.0:9094,CONTROLLER://kafka:9093'
+      KAFKA_ADVERTISED_LISTENERS: 'EXTERNAL://localhost:9092,INTERNAL://kafka:9094'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'EXTERNAL:PLAINTEXT,INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'INTERNAL'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      CLUSTER_ID: 'irion-kafka-cluster-001'
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Apps ────────────────────────────────────────────────────────────────
+
+  irion-api:
+    build:
+      context: ../
+      dockerfile: Dockerfile
+    container_name: irion-api
+    ports:
+      - "8080:8080"
+    environment:
+      IRION_PG_HOST: postgres
+      IRION_PG_PORT: "5432"
+      IRION_PG_DB: irion
+      IRION_PG_USER: irion
+      IRION_PG_PASSWORD: irion
+      IRION_DATA_DIR: /data
+    volumes:
+      - irion_data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  irion-pipeline:
+    build:
+      context: ../../irion-pipeline
+      dockerfile: Dockerfile
+    container_name: irion-pipeline
+    environment:
+      IRION_KAFKA_BROKER: kafka:9092
+      IRION_DATA_DIR: /data
+    volumes:
+      - irion_data:/data
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  irion-simulator:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.simulator
+    container_name: irion-simulator
+    volumes:
+      - ../data/bronze:/app/data/bronze:ro
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  irion-ui:
+    build:
+      context: ../../irion-ui
+      dockerfile: Dockerfile
+    container_name: irion-ui
+    ports:
+      - "5173:80"
+    depends_on:
+      - irion-api
+    restart: unless-stopped
+
+  # ── Monitoring (optional) ───────────────────────────────────────────────
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: irion-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    profiles:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: irion-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    profiles:
+      - monitoring
+
+volumes:
+  pgdata:
+  irion_data:
+  prometheus_data:
+  grafana_data:

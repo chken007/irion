@@ -1,0 +1,73 @@
+spring:
+  application:
+    name: irion
+
+  # DuckDB — local OLAP (embedded, no server needed)
+  datasource:
+    duckdb:
+      url: jdbc:duckdb:${IRION_DATA_DIR:./data}/irion.duckdb
+      driver-class-name: org.duckdb.DuckDBDriver
+
+    # PostgreSQL — Docker, for decision/action log
+    postgresql:
+      url: jdbc:postgresql://${IRION_PG_HOST:localhost}:${IRION_PG_PORT:5432}/${IRION_PG_DB:irion}
+      driver-class-name: org.postgresql.Driver
+      username: ${IRION_PG_USER:irion}
+      password: ${IRION_PG_PASSWORD:irion}
+
+  # Schema init (creates tables from schema.sql on startup)
+  sql:
+    init:
+      mode: always
+
+  # Jackson
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: non_null
+
+# Server
+server:
+  port: ${IRION_PORT:8080}
+
+# Actuator + Prometheus
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: irion
+
+# OpenAPI
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: alpha
+    tagsSorter: alpha
+
+# Data ingestion paths
+irion:
+  data:
+    base-dir: ${IRION_DATA_DIR:./data}
+    bronze-dir: ${irion.data.base-dir}/bronze
+    silver-dir: ${irion.data.base-dir}/silver
+    gold-dir: ${irion.data.base-dir}/gold
+  jwt:
+    secret: ${JWT_SECRET:irion-dev-secret-do-not-use-in-prod}
+    expiration-ms: 86400000
+
+# Logging
+logging:
+  level:
+    com.irion: DEBUG
+    org.springframework.web: INFO
